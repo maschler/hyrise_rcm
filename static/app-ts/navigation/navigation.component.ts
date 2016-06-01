@@ -1,5 +1,5 @@
 import {Component} from 'angular2/core';
-import { ROUTER_DIRECTIVES, Location, Router } from 'angular2/router';
+import { ROUTER_DIRECTIVES, Router } from 'angular2/router';
 
 @Component({
     selector: 'nav-bar',
