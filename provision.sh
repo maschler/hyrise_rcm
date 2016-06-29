@@ -10,8 +10,8 @@ cd hyrise_rcm/
 sudo pip3 install -r requirements.txt 
  
 cd static
-#curl -sL https://deb.nodesource.com/setup_4.x | sudo -E bash -
-#sudo apt-get install -y nodejs
+curl -sL https://deb.nodesource.com/setup_4.x | sudo -E bash -
+sudo apt-get install -y nodejs
 npm install
 npm run tsc || true
 
