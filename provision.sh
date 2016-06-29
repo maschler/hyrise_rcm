@@ -1,4 +1,5 @@
 #!/bin/bash
+set -ex
 
 sudo apt-get update
 sudo apt-get upgrade -y
@@ -12,7 +13,7 @@ cd static
 #curl -sL https://deb.nodesource.com/setup_4.x | sudo -E bash -
 #sudo apt-get install -y nodejs
 npm install
-npm run tsc
+npm run tsc || true
 
 # Install python3.5 and link python3.4 packages
 sudo add-apt-repository ppa:fkrull/deadsnakes -y
