@@ -5,14 +5,14 @@ sudo apt-get update
 sudo apt-get upgrade -y
 sudo apt-get install -y git python3-pip python3-dev npm
 
-git clone https://github.com/maschler/hyrise_rcm.git
+cp -r /vagrant/ ~/hyrise_rcm
 cd hyrise_rcm/
 sudo pip3 install -r requirements.txt 
  
 cd static
 curl -sL https://deb.nodesource.com/setup_4.x | sudo -E bash -
 sudo apt-get install -y nodejs
-npm install
+npm install | xargs echo
 npm run tsc || true
 
 # Install python3.5 and link python3.4 packages
