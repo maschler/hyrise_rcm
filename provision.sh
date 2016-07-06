@@ -23,3 +23,6 @@ sudo apt-get install -y python3.5
 
 sudo rm -r /usr/local/lib/python3.5/dist-packages/
 sudo ln -s /usr/local/lib/python3.4/dist-packages /usr/local/lib/python3.5/dist-packages
+
+sudo service hyrise_rcm start
+
