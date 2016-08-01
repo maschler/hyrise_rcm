@@ -9,5 +9,4 @@ Vagrant.configure(2) do |config|
   config.vm.network "forwarded_port", guest: 5000, host: 8080
   config.ssh.shell = "bash -c 'BASH_ENV=/etc/profile exec bash'"
   config.ssh.insert_key = false
-#  config.vm.provision :shell, path: "run.sh", run: "always", privileged: true
 end
