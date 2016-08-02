@@ -93,32 +93,42 @@ class Connector(object):
         return node
 
     def start_dispatcher(self):
-        info = boot_vm('hyrise_dispatcher', 'dispatcher_1')
-        # TODO create only one dispatcher
-        self.dispatcher_url = info['ip']
-        self.dispatcher_id = info['id']
-        info['type'] = 'Dispatcher'
-        info['name'] = ''
-        info['node'] = info['ip']
-        self.instances.append(info)
-        self.add_node(info['ip'])
+        if not self.dispatcher_url:
+            info = boot_vm('hyrise_dispatcher', 'dispatcher_1')
+            self.dispatcher_url = info['ip']
+            self.dispatcher_id = info['id']
+            print('dispatcher ip: ' + info['ip'])
+            info['type'] = 'Dispatcher'
+            info['name'] = ''
+            info['node'] = info['ip']
+            self.instances.append(info)
+            self.add_node(info['ip'])
         return {"node": self.dispatcher_id, "ip": self.dispatcher_url}
 
     def start_master(self):
-        info = boot_vm('hyrise_master', 'master_1')
-        # TODO set dispatcher IP
-        self.master_url = info['ip']
-        self.master_id = info['id']
+        if not self.master_url:
+            if not self.dispatcher_url:
+                print("Create dispatcher first")
+                return {"node":'', "ip":''}
+            info = boot_vm('hyrise_master', 'master_1')
+            self.master_url = info['ip']
+            self.master_id = info['id']
 
-        info['type'] = 'Master'
-        info['name'] = ''
-        info['node'] = info['ip']
-        self.instances.append(info)
-        self.add_node(info['ip'])
+            info['type'] = 'Master'
+            info['name'] = ''
+            info['node'] = info['ip']
+            self.instances.append(info)
+            self.add_node(info['ip'])
 
+            # set dispatcher IP
+            #command = 'ssh -i /home/vagrant/hyrise_rcm/ssh_keys/vagrant vagrant@' + info['ip'] + ' echo ' + self.dispatcher_url + ' > /home/vagrant/hyrise_dispatcher/master_IP.conf'
+            #p = subprocess.Popen([command], stdout=subprocess.PIPE,shell=True)
         return {"node": self.master_id, "ip": self.master_url}
 
     def start_replica(self):
+        if not self.maste_url or not self.dispatcher_url:
+            print("First create master and dispatcher")
+            return  {"node":'', "ip":''}
         _id = len(self.instances)
         info = boot_vm('hyrise_replica', 'replica_'+str(_id))
         # TODO set dispatcher+master IP
