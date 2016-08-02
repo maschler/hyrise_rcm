@@ -28,89 +28,41 @@ class Connector(object):
 
     def update_nodes_and_instances(self):
 
-        ## Nodes
         self.lock.acquire()
-        try:
-            # We need to use a local client here as this command cannot be executed within swarm
-            local_docker = Client(base_url='tcp://vm-imdmresearch-keller-01.eaalab.hpi.uni-potsdam.de:2375') # TODO: remove remote IP
-            start = local_docker.start(container=container.get('Id'))
-            wait = local_docker.wait(container=container.get('Id'))
-            output = local_docker.logs(container=container.get('Id'))
-            local_docker.remove_container(container=container.get('Id'), force=True)
 
-            # swarm list prints an info line before the actual nodes
-            response = [n for n in output.decode("utf-8").split('\n') if "level" not in n]
+        if self.dispatcher_url != "":
+            r = requests.get("http://" + self.dispatcher_url + ":8080/node_info")
+            instances_info = r.json()['hosts']
+            print(instance_info)
+        else:
+            instances_info = None
 
-            print(response)
+        for instance in self.instances:
+            queries = 0
+            total_time = 0
+            throughput = "n.a."
+            if instances_info:
+                info = [i for i in instances_info if i['ip'] == instance['ip']]
+                if len(info) == 1:
+                    # not available for dispatcher
+                    queries = int(info[0]['total_queries'])
+                    total_time = int(info[0]['total_time'])
+                    if queries != 0:
+                        throughput = "%.2f ms" % (total_time/queries/1000)
+                else:
+                    print('found duplicate IP')
 
-            if response:
-                self.nodes = [{"hostname": n.split('.')[0].replace('keller-', ''), "runningContainers": 0} for n in response if n != ''] # TODO: find a more reliable way to return the hostname
+            instance["throughput"] = throughput
+            instance["totalTime"] = total_time
+            instance["queries"] = queries
 
-            if self.dispatcher_node_url != "":
-                r = requests.get("http://" + self.dispatcher_node_url + ":8080/node_info")
-                instances_info = r.json()['hosts']
-            else:
-                instances_info = None
-            print(instances_info)
+        for instance in self.instances:
+            p = subprocess.Popen(['ssh -i /home/vagrant/hyrise_rcm/ssh_keys/vagrant vagrant@' + instance['ip'] + ' cat /proc/loadavg'], stdout=subprocess.PIPE,shell=True)
+            output = p.communicate()[0]
+            instance["load"] = output.split(' ')[0]
 
-            ## Instances
-
-            if not self.docker:
-                return "Error: not connected to swarm"
-
-            containers = self.docker.containers(all=True, filters={'status': 'running'})
-            instances = []
-            for container in containers:
-                info = self.docker.inspect_container(container=container.get('Id'))
-
-                if "hyrise/dispatcher" in container["Image"]:
-                    instances.append({
-                        "type": "Dispatcher",
-                        "name": container["Names"][0],
-                        "node": container["Names"][0].split('/')[1].replace('keller-', ''),
-                        "Id": container["Id"],
-                        "ip": info["NetworkSettings"]["Networks"]["swarm_network"]["IPAddress"]
-                    })
-                    self.dispatcher_url = info["NetworkSettings"]["Networks"]["swarm_network"]["IPAddress"]
-                    self.dispatcher_node_url = info["Node"]["Addr"].split(':')[0]
-                    self.dispatcher_ip = info["Node"]["IP"]
-
-                elif "hyrise/hyrise_nvm" in container["Image"]:
-                    swarm_ip = info["NetworkSettings"]["Networks"]["swarm_network"]["IPAddress"]
-                    queries = 0
-                    total_time = 0
-                    throughput = "n.a."
-                    if instances_info:
-                        info = [i for i in instances_info if i['ip'] == swarm_ip]
-                        if len(info) == 1:
-                            queries = int(info[0]['total_queries'])
-                            total_time = int(info[0]['total_time'])
-                            if queries != 0:
-                                throughput = "%.2f ms" % (total_time/queries/1000)
-
-                    instances.append({
-                        "type": container["Labels"]["type"].capitalize(),
-                        "name": container["Names"][0],
-                        "node": container["Names"][0].split('/')[1].replace('keller-', ''),
-                        "Id": container["Id"],
-                        "ip": swarm_ip,
-                        "throughput": throughput,
-                        "totalTime": total_time,
-                        "queries": queries
-                    })
-            self.instances = instances
-            for node in self.nodes:
-                node["runningContainers"] = sum(1 for i in instances if i["node"] == node["hostname"])
-
-
-            for instance in self.instances:
-                p = subprocess.Popen(['ssh -i /home/vagrant/hyrise_rcm/ssh_keys/vagrant vagrant@' + instance['ip'] + ' cat /proc/loadavg'], stdout=subprocess.PIPE,shell=True)
-                output = p.communicate()[0]
-               
-                instance["load"] = output.split(' ')[0]
-        except Exception as e:
-            print(e)
         self.lock.release()
+        return
 
 
     def get_nodes(self):
@@ -126,8 +78,7 @@ class Connector(object):
             removed = self.remove_replica()
         delete_vm(self.master_id)
         delete_vm(self.dispatcher_id)
-        for node in self.nodes:
-            node["runningContainers"] = 0
+        self.nodes = []
 
         self.dispatcher_url = ""
         self.dispatcher_id = None
@@ -136,25 +87,46 @@ class Connector(object):
         self.lock.release()
         return
 
+    def add_node(self, ip):
+        node = {'hostname':ip, 'runningContainers':1}
+        self.nodes.append(node)
+        return node
+
     def start_dispatcher(self):
         info = boot_vm('hyrise_dispatcher', 'dispatcher_1')
         # TODO create only one dispatcher
         self.dispatcher_url = info['ip']
         self.dispatcher_id = info['id']
-        return {"node": self.dispatcher_url, "ip": self.dispatcher_url}
+        info['type'] = 'Dispatcher'
+        info['name'] = ''
+        info['node'] = info['ip']
+        self.instances.append(info)
+        self.add_node(info['ip'])
+        return {"node": self.dispatcher_id, "ip": self.dispatcher_url}
 
     def start_master(self):
         info = boot_vm('hyrise_master', 'master_1')
         # TODO set dispatcher IP
         self.master_url = info['ip']
         self.master_id = info['id']
-        return {"node": self.master_url, "ip": self.master_url}
+
+        info['type'] = 'Master'
+        info['name'] = ''
+        info['node'] = info['ip']
+        self.instances.append(info)
+        self.add_node(info['ip'])
+
+        return {"node": self.master_id, "ip": self.master_url}
 
     def start_replica(self):
         _id = len(self.instances)
         info = boot_vm('hyrise_replica', 'replica_'+str(_id))
         # TODO set dispatcher+master IP
+        info['type'] = 'Replica'
+        info['name'] = ''
+        info['node'] = info['ip']
         self.instances.append(info)
+        self.add_node(info['ip'])
         return {"node": info['id'], "ip": info['ip']}
        
     def remove_replica(self):
