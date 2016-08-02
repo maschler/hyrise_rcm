@@ -5,7 +5,7 @@ import subprocess
 
 from openstack import boot_vm, delete_vm
 
-class Connector(object):
+class OSConnector(object):
 
     ssh_options = 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i /home/mpss2016/mpss-repo/hyrise_rcm/ssh_keys/vagrant'
     def __init__(self, url):

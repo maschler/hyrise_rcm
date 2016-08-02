@@ -6,82 +6,45 @@ from threading import Thread
 from flask import *
 from flask_socketio import SocketIO, emit
 
-from SwarmConnector import SwarmConnector
+from OpenStackConnector import OSConnector
 from query_hyrise import benchmark, query_hyrise
 
 
-# Set this variable to "threading", "eventlet" or "gevent" to test the
-# different async modes, or leave it set to None for the application to choose
-# the best option based on available packages.
-async_mode = None
+async_mode = 'threading'
 
-if async_mode is None:
-    #try:
-    #    import eventlet
-    #    async_mode = 'eventlet'
-    #except ImportError:
-    #    pass
-
-    if async_mode is None:
-        try:
-            from gevent import monkey
-            async_mode = 'gevent'
-        except ImportError:
-            pass
-
-    if async_mode is None:
-        async_mode = 'threading'
-
-    print('async_mode is ' + async_mode)
-
-# monkey patching is necessary because this application uses a background thread
-#if async_mode == 'eventlet':
-#    import eventlet
-#    eventlet.monkey_patch()
-#elif async_mode == 'gevent':
-#    from gevent import monkey
-#    monkey.patch_all()
-
-
-
-
-
-# Setup Flask app.
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, async_mode=async_mode)
 thread = None
 thread2 = None
-swarm = SwarmConnector("")
+connector = OSConnector("")
 
 
 def background_thread():
     while True:
         time.sleep(2)
-        swarm.update_nodes_and_instances()
-        nodes = swarm.get_nodes()
+        connector.update_nodes_and_instances()
+        nodes = connector.get_nodes()
         socketio.emit('nodes', {'data': nodes}, namespace='/hyrise')
-        instances = swarm.get_instances()
+        instances = connector.get_instances()
         socketio.emit('instances', {'data': instances}, namespace='/hyrise')
 
 
 def workload_thread():
     while True:
-        if swarm.workload_is_set:
+        if connector.workload_is_set:
             print("Load data")
             with open('./queries/1_load_docker.json', 'r') as query_f:
                 query = query_f.read()
-                print(query_hyrise(swarm.dispatcher_ip, 8080, query))
-            swarm.throughput = benchmark(swarm.dispatcher_ip, 8080, './queries/q1.json', 3, 3)
+                print(query_hyrise(connector.dispatcher_ip, 8080, query))
+            connector.throughput = benchmark(connector.dispatcher_ip, 8080, './queries/q1.json', 3, 3)
             print("Bench start..")
-            swarm.throughput = benchmark(swarm.dispatcher_ip, 8080, './queries/q1.json', 9, 18)
+            connector.throughput = benchmark(connector.dispatcher_ip, 8080, './queries/q1.json', 9, 18)
             print("Bench stop..")
-            throughput = swarm.get_throughput()
+            throughput = connector.get_throughput()
             socketio.emit('throughput', {'data': throughput}, namespace='/hyrise')
         else:
             time.sleep(1)
-
-
 
 # Routes
 @app.route('/')
@@ -120,49 +83,48 @@ def app_ts_proxy(path):
 # Events
 @socketio.on('connect_swarm', namespace='/hyrise')
 def test_connect(message):
-    swarm.set_url(message["url"])
-    info = swarm.connect()
+    connector.set_url(message["url"])
+    info = connector.connect()
     emit('connected', {'data': info})
 
 @socketio.on('get_nodes', namespace='/hyrise')
 def get_nodes():
-    print("get nodes app", file=sys.stderr)
-    nodes = swarm.get_nodes()
+    nodes = connector.get_nodes()
     emit('nodes', {'data': nodes})
 
 @socketio.on('get_instances', namespace='/hyrise')
 def get_instances():
-    instances = swarm.get_instances()
+    instances = connector.get_instances()
     emit('instances', {'data': instances})
 
 @socketio.on('reset_instances', namespace='/hyrise')
 def reset_instances():
-    status = swarm.reset_instances()
+    status = connector.reset_instances()
     emit('reset', {'data': status})
 
 @socketio.on('start_dispatcher', namespace='/hyrise')
 def start_dispatcher():
-    status = swarm.start_dispatcher()
+    status = connector.start_dispatcher()
     emit('dispatcher_started', {'data': status})
 
 @socketio.on('start_master', namespace='/hyrise')
 def start_master():
-    status = swarm.start_master()
+    status = connector.start_master()
     emit('master_started', {'data': status})
 
 @socketio.on('start_replica', namespace='/hyrise')
 def start_replica():
-    status = swarm.start_replica()
+    status = connector.start_replica()
     emit('replica_started', {'data': status})
 
 @socketio.on('remove_replica', namespace='/hyrise')
 def remove_replica():
-    status = swarm.remove_replica()
+    status = connector.remove_replica()
     emit('replica_removed', {'data': status})
 
 @socketio.on('set_workload', namespace='/hyrise')
 def set_workload(data):
-    status = swarm.set_workload(data["status"])
+    status = connector.set_workload(data["status"])
     emit('workload_set', {'data': status})
 
 
