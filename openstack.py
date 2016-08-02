@@ -73,11 +73,11 @@ def boot_vm(image_name, instance_name, flavor_name='m1.large'):
     ip = ip_obj['floatingip']['floating_ip_address']
     
     start = datetime.datetime.now()
-    timeout = 120
+    timeout = 7 * 60
     end = start + datetime.timedelta(seconds=timeout)
     port = 22
     connect_timeout = 5
-    # From utilities/wait_for of ansible
+    print("Created VM, waiting to come up...")
     while datetime.datetime.now() < end:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(connect_timeout)
@@ -87,10 +87,14 @@ def boot_vm(image_name, instance_name, flavor_name='m1.large'):
             s.close()
             break
         except:
-            time.sleep(1)
+            time.sleep(5)
     return {'id': instance.id, 'ip': ip}
 
 def delete_vm(instance_id):
+    if not instance_id:
+        return
+
+    print("delete: " + str(instance_id))
     instance = nova.servers.get(instance_id)
     # TODO delete floating IPs
     try:

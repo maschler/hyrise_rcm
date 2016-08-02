@@ -6,6 +6,8 @@ import subprocess
 from openstack import boot_vm, delete_vm
 
 class Connector(object):
+
+    ssh_options = 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i /home/mpss2016/mpss-repo/hyrise_rcm/ssh_keys/vagrant'
     def __init__(self, url):
         self.url = url
 
@@ -30,12 +32,14 @@ class Connector(object):
 
         self.lock.acquire()
 
+        instances_info = []
         if self.dispatcher_url != "":
-            r = requests.get("http://" + self.dispatcher_url + ":8080/node_info")
-            instances_info = r.json()['hosts']
-            print(instance_info)
-        else:
-            instances_info = None
+            try:
+                r = requests.get("http://" + self.dispatcher_url + ":8080/node_info")
+                instances_info = r.json()['hosts']
+            except ConnectionError:
+                print("Dispatcher not available")
+        print(instances_info)
 
         for instance in self.instances:
             queries = 0
@@ -57,9 +61,12 @@ class Connector(object):
             instance["queries"] = queries
 
         for instance in self.instances:
-            p = subprocess.Popen(['ssh -i /home/vagrant/hyrise_rcm/ssh_keys/vagrant vagrant@' + instance['ip'] + ' cat /proc/loadavg'], stdout=subprocess.PIPE,shell=True)
-            output = p.communicate()[0]
-            instance["load"] = output.split(' ')[0]
+            try:
+                p = subprocess.Popen([ssh_options + ' vagrant@' + instance['ip'] + ' cat /proc/loadavg'], stdout=subprocess.PIPE,shell=True)
+                output = p.communicate()[0]
+                instance["load"] = output.split(' ')[0]
+            except ConnectionError:
+                print("VM %s not available".format(instance['ip']))
 
         self.lock.release()
         return
@@ -121,7 +128,7 @@ class Connector(object):
             self.add_node(info['ip'])
 
             # set dispatcher IP
-            #command = 'ssh -i /home/vagrant/hyrise_rcm/ssh_keys/vagrant vagrant@' + info['ip'] + ' echo ' + self.dispatcher_url + ' > /home/vagrant/hyrise_dispatcher/master_IP.conf'
+            #command = ssh_options + ' vagrant@' + info['ip'] + ' echo ' + self.dispatcher_url + ' > /home/vagrant/hyrise_dispatcher/master_IP.conf'
             #p = subprocess.Popen([command], stdout=subprocess.PIPE,shell=True)
         return {"node": self.master_id, "ip": self.master_url}
 
