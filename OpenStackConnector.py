@@ -5,9 +5,10 @@ import subprocess
 
 from openstack import boot_vm, delete_vm
 
+ssh_options = 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i /home/mpss2016/mpss-repo/hyrise_rcm/ssh_keys/vagrant'
+
 class OSConnector(object):
 
-    ssh_options = 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i /home/mpss2016/mpss-repo/hyrise_rcm/ssh_keys/vagrant'
     def __init__(self, url):
         self.url = url
 
@@ -19,8 +20,8 @@ class OSConnector(object):
 
         self.lock = threading.Lock()
 
-        self.dispatcher_url = ""
-        self.master_url = ""
+        self.dispatcher = None
+        self.master = None
 
     def set_url(self, url):
         self.url = url
@@ -33,11 +34,11 @@ class OSConnector(object):
         self.lock.acquire()
 
         instances_info = []
-        if self.dispatcher_url != "":
+        if self.dispatcher:
             try:
-                r = requests.get("http://" + self.dispatcher_url + ":8080/node_info")
+                r = requests.get("http://" + self.dispatcher['ip'] + ":8080/node_info")
                 instances_info = r.json()['hosts']
-            except ConnectionError:
+            except requests.ConnectionError:
                 print("Dispatcher not available")
         print(instances_info)
 
@@ -65,10 +66,11 @@ class OSConnector(object):
                 p = subprocess.Popen([ssh_options + ' vagrant@' + instance['ip'] + ' cat /proc/loadavg'], stdout=subprocess.PIPE,shell=True)
                 output = p.communicate()[0]
                 instance["load"] = output.split(' ')[0]
-            except ConnectionError:
+            except requests.ConnectionError:
                 print("VM %s not available".format(instance['ip']))
 
         self.lock.release()
+        print(self.instances)
         return
 
 
@@ -83,14 +85,12 @@ class OSConnector(object):
         removed = True
         while removed:
             removed = self.remove_replica()
-        delete_vm(self.master_id)
-        delete_vm(self.dispatcher_id)
+        delete_vm(self.dispatcher)
+        delete_vm(self.master)
         self.nodes = []
 
-        self.dispatcher_url = ""
-        self.dispatcher_id = None
-        self.master_url = ""
-        self.master_id = None
+        self.dispatcher = None
+        self.master = None
         self.lock.release()
         return
 
@@ -100,44 +100,40 @@ class OSConnector(object):
         return node
 
     def start_dispatcher(self):
-        if not self.dispatcher_url:
+        if not self.dispatcher:
             info = boot_vm('hyrise_dispatcher', 'dispatcher_1')
-            self.dispatcher_url = info['ip']
-            self.dispatcher_id = info['id']
-            print('dispatcher ip: ' + info['ip'])
             info['type'] = 'Dispatcher'
             info['name'] = ''
             info['node'] = info['ip']
             self.instances.append(info)
             self.add_node(info['ip'])
-        return {"node": self.dispatcher_id, "ip": self.dispatcher_url}
+            self.dispatcher = info
+        return {"node": self.dispatcher['id'], "ip": self.dispatcher['ip']}
 
     def start_master(self):
-        if not self.master_url:
-            if not self.dispatcher_url:
+        if not self.master:
+            if not self.dispatcher:
                 print("Create dispatcher first")
                 return {"node":'', "ip":''}
-            info = boot_vm('hyrise_master', 'master_1')
-            self.master_url = info['ip']
-            self.master_id = info['id']
-
+            info = boot_vm('hyrise', 'master_1')
             info['type'] = 'Master'
             info['name'] = ''
             info['node'] = info['ip']
             self.instances.append(info)
             self.add_node(info['ip'])
+            self.master = info
 
             # set dispatcher IP
             #command = ssh_options + ' vagrant@' + info['ip'] + ' echo ' + self.dispatcher_url + ' > /home/vagrant/hyrise_dispatcher/master_IP.conf'
             #p = subprocess.Popen([command], stdout=subprocess.PIPE,shell=True)
-        return {"node": self.master_id, "ip": self.master_url}
+        return {"node": self.master['id'], "ip": self.master['ip']}
 
     def start_replica(self):
-        if not self.maste_url or not self.dispatcher_url:
+        if not self.maste or not self.dispatcher:
             print("First create master and dispatcher")
             return  {"node":'', "ip":''}
         _id = len(self.instances)
-        info = boot_vm('hyrise_replica', 'replica_'+str(_id))
+        info = boot_vm('hyrise', 'replica_'+str(_id))
         # TODO set dispatcher+master IP
         info['type'] = 'Replica'
         info['name'] = ''
@@ -149,13 +145,13 @@ class OSConnector(object):
     def remove_replica(self):
         self.lock.acquire()
         info = None
-        if self.instances:
+        if self.instances and len(self.instances) > 2:
             info = self.instances.pop()
             try:
-                requests.get("http://" + self.dispatcher_url + ":8080/remove_node/%s:" % info['ip'], timeout=1)
+                requests.get("http://" + self.dispatcher['ip'] + ":8080/remove_node/%s:" % info['ip'], timeout=1)
             except Exception as e:
                 print(e)
-                delete_vm(info['id'])
+                delete_vm(info)
         self.lock.release()
         return info
 

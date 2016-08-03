@@ -71,6 +71,7 @@ def boot_vm(image_name, instance_name, flavor_name='m1.large'):
     ip_obj = neutron.create_floatingip(body={'floatingip': args})
 
     ip = ip_obj['floatingip']['floating_ip_address']
+    ip_id = ip_obj['floatingip']['id']
     
     start = datetime.datetime.now()
     timeout = 7 * 60
@@ -88,19 +89,16 @@ def boot_vm(image_name, instance_name, flavor_name='m1.large'):
             break
         except:
             time.sleep(5)
-    return {'id': instance.id, 'ip': ip}
+    return {'id': instance.id, 'ip': ip, 'ip_id': ip_id}
 
-def delete_vm(instance_id):
-    if not instance_id:
+def delete_vm(instance):
+    if not instance:
         return
 
-    print("delete: " + str(instance_id))
-    instance = nova.servers.get(instance_id)
-    # TODO delete floating IPs
+    neutron.delete_floatingip(instance['ip_id'])
     try:
-        result = nova.delete(instance)
+        result = nova.servers.delete(instance['id'])
     except Exception as e:
         print(e)
-        result = nova.force_delete(instance)
+        result = nova.servers.force_delete(instance['id'])
     return result
-
