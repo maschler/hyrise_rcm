@@ -123,23 +123,26 @@ class OSConnector(object):
             self.add_node(info['ip'])
             self.master = info
 
-            # set dispatcher IP
-            #command = ssh_options + ' vagrant@' + info['ip'] + ' echo ' + self.dispatcher_url + ' > /home/vagrant/hyrise_dispatcher/master_IP.conf'
-            #p = subprocess.Popen([command], stdout=subprocess.PIPE,shell=True)
+            # start master
+            command = ssh_options + ' vagrant@' + info['ip'] + ' "cd /home/vagrant/hyrise_nvm/build; ./hyrise-server_release --dispatcherurl=' + self.dispatcher['ip'] + ' --dispatcherport=8080 --port=5001 --corecount=$(nproc) --nodeId=0 > server.log"'
+            p = subprocess.Popen([command], stdout=subprocess.PIPE, shell=True)
         return {"node": self.master['id'], "ip": self.master['ip']}
 
     def start_replica(self):
-        if not self.maste or not self.dispatcher:
+        if not self.master or not self.dispatcher:
             print("First create master and dispatcher")
             return  {"node":'', "ip":''}
         _id = len(self.instances)
         info = boot_vm('hyrise', 'replica_'+str(_id))
-        # TODO set dispatcher+master IP
         info['type'] = 'Replica'
         info['name'] = ''
         info['node'] = info['ip']
         self.instances.append(info)
         self.add_node(info['ip'])
+
+        # start with dispatcher+master IP
+        command = ssh_options + ' vagrant@' + info['ip'] + ' "cd /home/vagrant/hyrise_nvm/build; ./hyrise-server_release --masterurl=' + self.master['ip'] + '--dispatcherurl=' + self.dispatcher['ip'] + ' --dispatcherport=8080 --port=5001 --corecount=$(nproc) --nodeId=' + str(_id) + ' > server.log"'
+        p = subprocess.Popen([command], stdout=subprocess.PIPE, shell=True)
         return {"node": info['id'], "ip": info['ip']}
        
     def remove_replica(self):

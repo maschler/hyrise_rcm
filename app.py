@@ -36,10 +36,10 @@ def workload_thread():
             print("Load data")
             with open('./queries/1_load_docker.json', 'r') as query_f:
                 query = query_f.read()
-                print(query_hyrise(connector.dispatcher_ip, 8080, query))
-            connector.throughput = benchmark(connector.dispatcher_ip, 8080, './queries/q1.json', 3, 3)
+                print(query_hyrise(connector.dispatcher['ip'], 8080, query))
+            connector.throughput = benchmark(connector.dispatcher['ip'], 8080, './queries/q1.json', 3, 3)
             print("Bench start..")
-            connector.throughput = benchmark(connector.dispatcher_ip, 8080, './queries/q1.json', 9, 18)
+            connector.throughput = benchmark(connector.dispatcher['ip'], 8080, './queries/q1.json', 9, 18)
             print("Bench stop..")
             throughput = connector.get_throughput()
             socketio.emit('throughput', {'data': throughput}, namespace='/hyrise')

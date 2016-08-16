@@ -74,7 +74,7 @@ def boot_vm(image_name, instance_name, flavor_name='m1.large'):
     ip_id = ip_obj['floatingip']['id']
     
     start = datetime.datetime.now()
-    timeout = 7 * 60
+    timeout = 10 * 60
     end = start + datetime.timedelta(seconds=timeout)
     port = 22
     connect_timeout = 5
