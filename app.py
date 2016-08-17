@@ -22,7 +22,7 @@ connector = OSConnector("")
 
 def background_thread():
     while True:
-        time.sleep(2)
+        time.sleep(1)
         connector.update_nodes_and_instances()
         nodes = connector.get_nodes()
         socketio.emit('nodes', {'data': nodes}, namespace='/hyrise')
@@ -33,16 +33,19 @@ def background_thread():
 def workload_thread():
     while True:
         if connector.workload_is_set:
-            print("Load data")
-            with open('./queries/1_load_docker.json', 'r') as query_f:
-                query = query_f.read()
-                print(query_hyrise(connector.dispatcher['ip'], 8080, query))
-            connector.throughput = benchmark(connector.dispatcher['ip'], 8080, './queries/q1.json', 3, 3)
-            print("Bench start..")
-            connector.throughput = benchmark(connector.dispatcher['ip'], 8080, './queries/q1.json', 9, 18)
-            print("Bench stop..")
-            throughput = connector.get_throughput()
-            socketio.emit('throughput', {'data': throughput}, namespace='/hyrise')
+            try:
+                print("Load data")
+                with open('./queries/1_load_docker.json', 'r') as query_f:
+                    query = query_f.read()
+                    print(query_hyrise(connector.dispatcher['ip'], 8080, query))
+                connector.throughput = benchmark(connector.dispatcher['ip'], 8080, './queries/q1.json', 3, 3)
+                print("Bench start..")
+                connector.throughput = benchmark(connector.dispatcher['ip'], 8080, './queries/q1.json', 9, 18)
+                print("Bench stop..")
+                throughput = connector.get_throughput()
+                socketio.emit('throughput', {'data': throughput}, namespace='/hyrise')
+            except Exception as e:
+                print "Unexpected error:", e
         else:
             time.sleep(1)
 
@@ -54,9 +57,9 @@ def index(path=None):
     if thread is None:
         thread = Thread(target=background_thread)
         thread2 = Thread(target=workload_thread)
-        #thread.daemon = True
+        thread.daemon = True
         thread.start()
-        #thread2.daemon = True
+        thread2.daemon = True
         thread2.start()
     return app.send_static_file('index.html')
 
@@ -129,4 +132,4 @@ def set_workload(data):
 
 
 if __name__ == '__main__':
-    socketio.run(app, host="0.0.0.0", debug=True)
+    socketio.run(app, host="127.0.0.1")

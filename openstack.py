@@ -40,6 +40,7 @@ nova = novaclient.Client(version=version,
                          project_id=tenant_name)
 
 def boot_vm(image_name, instance_name, flavor_name='m1.large'):
+    print('Create VM...')
     if not nova.keypairs.findall(name="vagrantkey"):
         with open(os.path.expanduser('./ssh_keys/vagrant.pub')) as fpubkey:
             nova.keypairs.create(name="vagrantkey", public_key=fpubkey.read())
@@ -74,7 +75,7 @@ def boot_vm(image_name, instance_name, flavor_name='m1.large'):
     ip_id = ip_obj['floatingip']['id']
     
     start = datetime.datetime.now()
-    timeout = 10 * 60
+    timeout = 60 * 60
     end = start + datetime.timedelta(seconds=timeout)
     port = 22
     connect_timeout = 5

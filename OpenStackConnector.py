@@ -5,7 +5,7 @@ import subprocess
 
 from openstack import boot_vm, delete_vm
 
-ssh_options = 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i /home/mpss2016/mpss-repo/hyrise_rcm/ssh_keys/vagrant'
+ssh_options = 'ssh -q -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i /home/mpss2016/mpss-repo/hyrise_rcm/ssh_keys/vagrant'
 
 class OSConnector(object):
 
@@ -40,7 +40,7 @@ class OSConnector(object):
                 instances_info = r.json()['hosts']
             except requests.ConnectionError:
                 print("Dispatcher not available")
-        print(instances_info)
+        # print(instances_info)
 
         for instance in self.instances:
             queries = 0
@@ -54,8 +54,8 @@ class OSConnector(object):
                     total_time = int(info[0]['total_time'])
                     if queries != 0:
                         throughput = "%.2f ms" % (total_time/queries/1000)
-                else:
-                    print('found duplicate IP')
+                elif len(info) > 1:
+                    print('Found duplicate IP', instance['ip'], instances_info)
 
             instance["throughput"] = throughput
             instance["totalTime"] = total_time
@@ -70,7 +70,7 @@ class OSConnector(object):
                 print("VM %s not available".format(instance['ip']))
 
         self.lock.release()
-        print(self.instances)
+        # print(self.instances)
         return
 
 
@@ -82,12 +82,10 @@ class OSConnector(object):
 
     def reset_instances(self):
         self.lock.acquire()
-        removed = True
-        while removed:
-            removed = self.remove_replica()
-        delete_vm(self.dispatcher)
-        delete_vm(self.master)
+        for instance in self.instances:
+            delete_vm(instance)
         self.nodes = []
+        self.instances = []
 
         self.dispatcher = None
         self.master = None
@@ -124,7 +122,7 @@ class OSConnector(object):
             self.master = info
 
             # start master
-            command = ssh_options + ' vagrant@' + info['ip'] + ' "cd /home/vagrant/hyrise_nvm/build; ./hyrise-server_release --dispatcherurl=' + self.dispatcher['ip'] + ' --dispatcherport=8080 --port=5001 --corecount=$(nproc) --nodeId=0 > server.log"'
+            command = ssh_options + ' vagrant@' + info['ip'] + ' "cd /home/vagrant/hyrise_nvm; ./build/hyrise-server_release --dispatcherurl=' + self.dispatcher['ip'] + ' --dispatcherport=8080 --port=5001 --corecount=3 --nodeId=0 > server.log &"'
             p = subprocess.Popen([command], stdout=subprocess.PIPE, shell=True)
         return {"node": self.master['id'], "ip": self.master['ip']}
 
@@ -141,7 +139,7 @@ class OSConnector(object):
         self.add_node(info['ip'])
 
         # start with dispatcher+master IP
-        command = ssh_options + ' vagrant@' + info['ip'] + ' "cd /home/vagrant/hyrise_nvm/build; ./hyrise-server_release --masterurl=' + self.master['ip'] + '--dispatcherurl=' + self.dispatcher['ip'] + ' --dispatcherport=8080 --port=5001 --corecount=$(nproc) --nodeId=' + str(_id) + ' > server.log"'
+        command = ssh_options + ' vagrant@' + info['ip'] + ' "cd /home/vagrant/hyrise_nvm; ./build/hyrise-server_release --masterurl=' + self.master['ip'] + ' --dispatcherurl=' + self.dispatcher['ip'] + ' --dispatcherport=8080 --port=5001 --corecount=3 --nodeId=' + str(_id) + ' > server.log &"'
         p = subprocess.Popen([command], stdout=subprocess.PIPE, shell=True)
         return {"node": info['id'], "ip": info['ip']}
        

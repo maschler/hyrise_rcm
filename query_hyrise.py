@@ -13,8 +13,8 @@ def query_hyrise(host, port, query):
 def job(host, port, query, num_threads, num_queries):
     for _ in range(num_queries // num_threads):
         answer = query_hyrise(host, port, query)
-        #print "answer"
-        print(answer.text)
+        # print "answer"
+        # print(answer.text)
 
 
 def benchmark(host, port, query_file, num_threads, num_queries):
@@ -30,8 +30,8 @@ def benchmark(host, port, query_file, num_threads, num_queries):
         threads.append(t)
     for t in threads:
         t.join()
-    print(requests.get(url='http://%s:%d/node_info' % (host, port)))
-    print("%f queries/s" % (num_queries/(time.time() - start)))
+    # print(requests.get(url='http://%s:%d/node_info' % (host, port)))
+    print("%d queries, %f queries/s" % (num_queries, num_queries/(time.time() - start)))
     return num_queries / (time.time() - start)
 
 

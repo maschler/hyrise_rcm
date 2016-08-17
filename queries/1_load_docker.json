@@ -6,7 +6,7 @@
         "table": "ORDER_LINE",
         "filename": "ORDER_LINE.tbl",
         "delimiter": "|",
-        "path": "/home/hyrise/hyrise_nvm"
+        "path": "/home/vagrant/hyrise_nvm"
         },
 
     "NoOp": {

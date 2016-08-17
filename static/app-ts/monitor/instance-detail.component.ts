@@ -8,6 +8,7 @@ import {Instance} from './instance';
         <div class="tile">
           <h3 class="title">{{instance.type}}</h3>
           <p>Hostname: <b>{{instance.node}}</b></p>
+          <p>Load: <b>{{instance.load}}</b></p>
           <p *ngIf="instance.type != 'Dispatcher'" ># Queries: <b>{{instance.queries}}</b></p>
         </div>
       </div>
