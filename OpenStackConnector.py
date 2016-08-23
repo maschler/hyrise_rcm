@@ -99,6 +99,7 @@ class OSConnector(object):
 
     def start_dispatcher(self):
         if not self.dispatcher:
+            print("Create dispatcher")
             info = boot_vm('hyrise_dispatcher', 'dispatcher_1')
             info['type'] = 'Dispatcher'
             info['name'] = ''
@@ -106,6 +107,7 @@ class OSConnector(object):
             self.instances.append(info)
             self.add_node(info['ip'])
             self.dispatcher = info
+            print("Dispatcher ready")
         return {"node": self.dispatcher['id'], "ip": self.dispatcher['ip']}
 
     def start_master(self):
@@ -113,6 +115,7 @@ class OSConnector(object):
             if not self.dispatcher:
                 print("Create dispatcher first")
                 return {"node":'', "ip":''}
+            print("Create master")
             info = boot_vm('hyrise', 'master_1')
             info['type'] = 'Master'
             info['name'] = ''
@@ -121,9 +124,12 @@ class OSConnector(object):
             self.add_node(info['ip'])
             self.master = info
 
-            # start master
-            command = ssh_options + ' vagrant@' + info['ip'] + ' "cd /home/vagrant/hyrise_nvm; ./build/hyrise-server_release --dispatcherurl=' + self.dispatcher['ip'] + ' --dispatcherport=8080 --port=5001 --corecount=3 --nodeId=0 > server.log &"'
+            print("VM ready. Starting hyrise...")
+            command = ssh_options + ' vagrant@' + info['ip'] + \
+                ' "cd /home/vagrant/hyrise_nvm; ./build/hyrise-server_release --dispatcherurl=' + self.dispatcher['ip'] + \
+                ' --dispatcherport=8080 --port=5001 --corecount=3 --nodeId=0 > server.log &"'
             p = subprocess.Popen([command], stdout=subprocess.PIPE, shell=True)
+            print("Hyrise master ready")
         return {"node": self.master['id'], "ip": self.master['ip']}
 
     def start_replica(self):
@@ -131,6 +137,7 @@ class OSConnector(object):
             print("First create master and dispatcher")
             return  {"node":'', "ip":''}
         _id = len(self.instances)
+        print("Create replica")
         info = boot_vm('hyrise', 'replica_'+str(_id))
         info['type'] = 'Replica'
         info['name'] = ''
@@ -138,9 +145,14 @@ class OSConnector(object):
         self.instances.append(info)
         self.add_node(info['ip'])
 
+        print("VM ready. Starting hyrise...")
         # start with dispatcher+master IP
-        command = ssh_options + ' vagrant@' + info['ip'] + ' "cd /home/vagrant/hyrise_nvm; ./build/hyrise-server_release --masterurl=' + self.master['ip'] + ' --dispatcherurl=' + self.dispatcher['ip'] + ' --dispatcherport=8080 --port=5001 --corecount=3 --nodeId=' + str(_id) + ' > server.log &"'
+        command = ssh_options + ' vagrant@' + info['ip'] + \
+            ' "cd /home/vagrant/hyrise_nvm; ./build/hyrise-server_release --masterurl=' + self.master['ip'] + \
+            ' --dispatcherurl=' + self.dispatcher['ip'] + \
+            ' --dispatcherport=8080 --port=5001 --corecount=3 --nodeId=' + str(_id) + ' > server.log &"'
         p = subprocess.Popen([command], stdout=subprocess.PIPE, shell=True)
+        print("Hyrise replica ready")
         return {"node": info['id'], "ip": info['ip']}
        
     def remove_replica(self):

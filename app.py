@@ -46,8 +46,7 @@ def workload_thread():
                 socketio.emit('throughput', {'data': throughput}, namespace='/hyrise')
             except Exception as e:
                 print "Unexpected error:", e
-        else:
-            time.sleep(1)
+        time.sleep(1)
 
 # Routes
 @app.route('/')
