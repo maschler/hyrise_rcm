@@ -106,7 +106,7 @@ export class MonitorComponent implements OnInit {
             console.log(updatedThroughput);
             var chart = jQuery("#graph").highcharts();
             if (chart) {
-                chart.series[0].addPoint(updatedThroughput["system"], true, chart.series[0].data.length > 20);
+                chart.series[0].addPoint(updatedThroughput["system"], true, chart.series[0].data.length > 50);
             }
         });
     }

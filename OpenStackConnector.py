@@ -63,7 +63,7 @@ class OSConnector(object):
 
         for instance in self.instances:
             try:
-                p = subprocess.Popen([ssh_options + ' vagrant@' + instance['ip'] + ' cat /proc/loadavg'], stdout=subprocess.PIPE,shell=True)
+                p = subprocess.Popen([ssh_options + ' ubuntu@' + instance['ip'] + ' cat /proc/loadavg'], stdout=subprocess.PIPE,shell=True)
                 output = p.communicate()[0]
                 instance["load"] = output.split(' ')[0]
             except requests.ConnectionError:
@@ -125,8 +125,8 @@ class OSConnector(object):
             self.master = info
 
             print("VM ready. Starting hyrise...")
-            command = ssh_options + ' vagrant@' + info['ip'] + \
-                ' "cd /home/vagrant/hyrise_nvm; ./build/hyrise-server_release --dispatcherurl=' + self.dispatcher['ip'] + \
+            command = ssh_options + ' ubuntu@' + info['ip'] + \
+                ' "cd /home/ubuntu/hyrise/hyrise_nvm; ./build/hyrise-server_release --dispatcherurl=' + self.dispatcher['ip'] + \
                 ' --dispatcherport=8080 --port=5001 --corecount=3 --nodeId=0 > server.log &"'
             p = subprocess.Popen([command], stdout=subprocess.PIPE, shell=True)
             print("Hyrise master ready")
@@ -147,8 +147,8 @@ class OSConnector(object):
 
         print("VM ready. Starting hyrise...")
         # start with dispatcher+master IP
-        command = ssh_options + ' vagrant@' + info['ip'] + \
-            ' "cd /home/vagrant/hyrise_nvm; ./build/hyrise-server_release --masterurl=' + self.master['ip'] + \
+        command = ssh_options + ' ubuntu@' + info['ip'] + \
+            ' "cd /home/ubuntu/hyrise/hyrise_nvm; ./build/hyrise-server_release --masterurl=' + self.master['ip'] + \
             ' --dispatcherurl=' + self.dispatcher['ip'] + \
             ' --dispatcherport=8080 --port=5001 --corecount=3 --nodeId=' + str(_id) + ' > server.log &"'
         p = subprocess.Popen([command], stdout=subprocess.PIPE, shell=True)
